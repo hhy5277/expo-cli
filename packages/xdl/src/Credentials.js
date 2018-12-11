@@ -123,26 +123,45 @@ export async function getExistingDistCerts(
   username: string,
   appleTeamId: string
 ): Promise<?CertsList> {
-  const { err, certs } = await Api.callMethodAsync('getExistingDistCerts', [], 'post', {
-    username,
-    appleTeamId,
-  });
-
-  if (err) {
-    throw new Error('Error getting existing distribution certificates.');
-  }
-
-  return certs.map(({ usedByApps, certP12, certPassword, ...rest }) => {
+  const distCerts = await getExistingUserCredentials(username, appleTeamId, 'dist-cert');
+  return distCerts.map(({ usedByApps, certP12, certPassword, ...rest }) => {
     const serialNumber =
       certP12 !== undefined && certPassword !== undefined
         ? IosCodeSigning.findP12CertSerialNumber(certP12, certPassword)
         : null;
     return {
-      usedByApps: usedByApps && usedByApps.split(';'),
       serialNumber,
       ...rest,
     };
   });
+}
+
+export async function getExistingPushKeys(
+  username: string,
+  appleTeamId: string
+): Promise<?CertsList> {
+  return await getExistingUserCredentials(username, appleTeamId, 'push-key');
+}
+
+async function getExistingUserCredentials(
+  username: string,
+  appleTeamId: string,
+  type: string
+): Promise<?CertsList> {
+  const { err, certs } = await Api.callMethodAsync('getExistingUserCredentials', [], 'post', {
+    username,
+    appleTeamId,
+    type,
+  });
+
+  if (err) {
+    throw new Error('Error getting existing distribution certificates.');
+  } else {
+    return certs.map(({ usedByApps, ...rest }) => ({
+      usedByApps: usedByApps && usedByApps.split(';'),
+      ...rest,
+    }));
+  }
 }
 
 export async function backupExistingAndroidCredentials({
